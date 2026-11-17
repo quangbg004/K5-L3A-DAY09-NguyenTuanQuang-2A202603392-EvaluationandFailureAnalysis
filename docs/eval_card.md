@@ -43,3 +43,22 @@ exit 1 — blocked: refund_amount_correct, reply_refund_matches_ledger, pass_rat
 - 14 item khiến khoảng tin cậy rộng. MockLLM và judge replay không đo độ nhiễu của model thật hoặc khả năng tổng quát trên dữ liệu mới.
 - Metric FM-08 so các thông báo hoàn tiền có số tiền nhận diện được. Swarm Lab 8 không phát event `reply`, nên giá trị 1,0 của baseline thể hiện không có mâu thuẫn quan sát được. Test `misreport` và `fixed` cung cấp đối chứng có reply.
 - Eval owner của nhóm sửa grader hoặc phân tích trace khi gate đỏ. Người review xác nhận kết quả và đối chiếu anchor. Tăng eval-set version khi đổi item/nhãn, tăng metric-spec version khi đổi metric/điều kiện và sinh lại baseline bằng script.
+
+## Advanced / Expert — v2
+
+Baseline `E-swarm-20261117-3cda`, eval-set SHA `3cda69dd33b5`, spec 2.0. V2 giữ 14 claim v1 và thêm 14 claim adversarial. Mỗi claim chạy 5 seed trên SQLite mới. Nhãn riêng ở `labels_v2.json`. Tám cơ chế trong pack đều có mã và mọi FM mà pack kiểm tra có ít nhất ba item trong v2.
+
+| Phép kiểm | Kết quả và quyết định |
+|---|---|
+| A/A trên MockLLM | Seed 11/22/33/44/55 và 66/77/88/99/110 cho Δ = 0 trên mọi metric. Hai lần có `pass_rate = 0,9786`, `pass_at_5 = 1,0000` và `pass_hat_5 = 0,8929`. |
+| Sàn ổn định | `pass_hat_5` có sàn chặn 0,80, cách kết quả A/A quan sát 0,0929. `flaky_regression` còn 0,5714 và rớt sàn này. `pass_rate` trung bình 0,9143 vẫn trên sàn 0,85, nhưng CI ghép cặp cũng phát hiện suy giảm ở lần chạy này. |
+| Slice tiền | `slice_regression` có `pass_rate = 0,9357` chung, Δ −0,043 với CI [−0,121, +0,029]. Chỉ `money_movement/pass_rate` chặn vì 0,8500 dưới sàn 0,90. |
+| Slice adversarial | Sàn 0,85 và chặn khi CI cho thấy suy giảm. `slice_regression` đạt 0,9143 trên slice này và qua gate của slice. |
+| FM-08 | `reply_refund_matches_ledger` là metric chặn với sàn 1,00. Metric so số tiền được khẳng định trong reply với ledger. |
+| Integrity | Kiểm lưới item × seed, dòng trùng, nhãn slice, lỗi evaluator và aggregate từ raw score. Ratchet giữ ngưỡng, cờ blocking và so sánh ghép cặp khi eval-set version giữ nguyên. |
+
+Scorecard local chặn **3/3** regression và có **0** báo nhầm. `fixed` và `honest_refactor` qua gate. Bốn trap công khai đều trả `exit 1 — blocked: integrity` khi chạy gate riêng. Trap hạ ngưỡng dùng `--base-spec` để đối chiếu. Phép thử riêng với `misreport` bị chặn bởi metric FM-08 dù `pass_rate = 1,0`. `quiet_override` không phát event override và vẫn bị chặn bởi số tiền hoàn và slice denial.
+
+Hai bộ seed A/A đều có một seed chia hết cho 5 nên tái hiện cùng hành vi override của swarm. LLM thật có thể thay đổi cách chọn tool và câu trả lời. Cần lặp A/A trên nhiều bộ seed để ước lượng dải nhiễu và đặt sàn bên ngoài dải đó. Với xác suất lỗi độc lập 1/3 mỗi lượt, xác suất cả năm lượt đều không thấy lỗi là `(2/3)^5 ≈ 13,2%`.
+
+Xem [hướng dẫn M5–M7](lab9_advanced_guide.md) để tạo lại scorecard, A/A và các trap.
