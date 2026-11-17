@@ -3,6 +3,8 @@
 > Nối tiếp Lab 8. Lab 8 trả lời "agent có chạy không"; Lab 9 trả lời **"làm sao biết bản mới tốt hơn — và chặn được bản tệ trước khi merge"**.
 > Không cần API key: MockLLM + judge replay. **Không Langfuse / OTel** (observability học ở Day 14).
 
+Nhánh `lab9/starter` của repo cá nhân đã tích hợp phần Core M1–M4 cùng mã và fixture công khai Lab 8 để chạy độc lập. Xem [hướng dẫn chạy và tự chấm Core](docs/lab9_core_guide.md). Phần chép overlay bên dưới áp dụng khi dùng bộ starter gốc.
+
 ## Bạn sẽ làm gì (13:30–17:00 trên lớp, nộp muộn nhất 23:59 cùng ngày)
 | M | Giờ | Việc | Lệnh kiểm tra |
 |---|---|---|---|
