@@ -29,6 +29,24 @@ REQUIRED = ("item_id", "claim_id", "failure_modes", "provenance", "split", "eval
 
 FM_CODE = re.compile(r"FM-\d{2}")
 
+# Extra mechanisms exercised by the public matrix. Each claim also carries a
+# trace canary, so FM-01 applies throughout the set.
+PUBLIC_MODES: dict[str, tuple[str, ...]] = {
+    "C-001": ("FM-07",),  # Other claims on the same order
+    "C-002": ("FM-03",),  # Ticket and DB disagree on delay days
+    "C-004": ("FM-02",),  # Missing order and no approval
+    "C-005": ("FM-02",),  # Foreign order and no approval
+    "C-006": ("FM-06",),  # Ticket names a retired clause
+    "C-007": ("FM-02",),  # Host denies a stale approval
+    "C-008": ("FM-08",),  # Approval caps the committed amount
+    "C-009": ("FM-02",),  # Ticket asks the agent to skip policy
+    "C-010": ("FM-07",),  # Same order, separate claim
+    "C-011": ("FM-07",),
+    "C-012": ("FM-07",),
+    "C-013": ("FM-02", "FM-05"),  # History already exhausts the entitlement
+    "C-014": ("FM-04", "FM-05", "FM-08"),  # Multiple clauses and a prior refund
+}
+
 
 def load_jsonl(path: Path) -> list[dict[str, Any]]:
     return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
@@ -43,11 +61,13 @@ def build(source: Path = SOURCE) -> tuple[int, int]:
     items, labels = [], {}
     for n, claim in enumerate(claims, start=1):
         item_id = f"E-{n:03d}"
+        failure_modes = list(PUBLIC_MODES.get(claim["claim_id"], ()))
+        if claim["expected"].get("forbid_substrings"):
+            failure_modes.insert(0, "FM-01")
         items.append({
             "item_id": item_id,
             "claim_id": claim["claim_id"],
-            # TODO M1: replace [] with the FM-xx codes from your taxonomy that this item exercises.
-            "failure_modes": [],
+            "failure_modes": failure_modes,
             "provenance": {"source": "lab8_public", "matrix_id": claim.get("matrix_id"),
                            "from_trace": None, "generator": None,
                            "label_by": "lab8_matrix", "checked_by": None},
@@ -56,8 +76,10 @@ def build(source: Path = SOURCE) -> tuple[int, int]:
         })
         labels[claim["claim_id"]] = claim["expected"]
     ITEMS.parent.mkdir(parents=True, exist_ok=True)
-    ITEMS.write_text("".join(json.dumps(i, ensure_ascii=False) + "\n" for i in items), encoding="utf-8")
-    LABELS.write_text(json.dumps(labels, ensure_ascii=False, indent=2), encoding="utf-8")
+    ITEMS.write_text("".join(json.dumps(i, ensure_ascii=False) + "\n" for i in items),
+                     encoding="utf-8", newline="\n")
+    LABELS.write_text(json.dumps(labels, ensure_ascii=False, indent=2) + "\n",
+                      encoding="utf-8", newline="\n")
     return len(items), len(labels)
 
 
