@@ -74,3 +74,40 @@ def test_slice_check_blocks_a_slice_below_floor():
     spec = dict(SPEC, slices=[{"name": "denial", "metric": "pass_rate", "min": 0.9, "blocking": True}])
     blocked, _ = gate.slice_check(_report(rows, {"pass_rate": 0.75}), base, spec)
     assert blocked == ["slice:denial/pass_rate"]
+
+@pytest.mark.parametrize("damage", ["duplicate", "evaluator_failure", "slice_relabel", "forged_aggregate"])
+def test_integrity_rejects_tampered_green_reports(damage):
+    from lab9 import gate
+
+    rows = [{**r, "cost": 1.0} for r in copy.deepcopy(ROWS)]
+    base = _report(rows, {"pass_rate": 1.0, "pass_5": 1.0, "cost_per_success": 1.0})
+    assert gate.integrity_check(base, base, SPEC) == []
+
+    suspect = copy.deepcopy(base)
+    if damage == "duplicate":
+        suspect["rows"][1] = copy.deepcopy(suspect["rows"][0])
+    elif damage == "evaluator_failure":
+        suspect["evaluator_failures"] = ["grader crashed on a successful case"]
+    elif damage == "slice_relabel":
+        suspect["rows"][0]["slices"] = []
+    else:
+        suspect["rows"][0]["pass_rate"] = False
+    blocked, logs = gate.check(suspect, base, SPEC)
+    assert blocked == ["integrity"]
+    assert any("INTEGRITY" in line for line in logs)
+
+
+def test_ratchet_preserves_slice_limits_and_paired_comparison():
+    from lab9 import gate
+
+    base = _report(copy.deepcopy(ROWS), {"pass_rate": 1.0})
+    original = copy.deepcopy(SPEC)
+    original["slices"] = [{
+        "name": "denial", "metric": "pass_rate", "min": 0.9,
+        "blocking": True, "no_significant_drop": True,
+    }]
+    proposed = copy.deepcopy(original)
+    proposed["slices"][0].update(min=0.85, blocking=False, no_significant_drop=False)
+    assert len(gate.integrity_check(base, base, proposed, original)) == 3
+    proposed["eval_set_version"] = "v3"
+    assert gate.integrity_check(base, base, proposed, original) == []

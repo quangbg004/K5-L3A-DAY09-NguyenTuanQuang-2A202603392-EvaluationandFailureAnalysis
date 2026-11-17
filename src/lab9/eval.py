@@ -126,17 +126,13 @@ def aggregate(rows: list[dict[str, Any]], metric_ids: list[str], k_values: list[
         by_item.setdefault(r["item_id"], []).append(bool(r.get("pass_rate")))
     out["pass_5"] = round(sum(all(v) for v in by_item.values()) / len(by_item), 4) if by_item else None
     # pass@k / pass^k (M6): mean over items of the unbiased per-item estimate.
-    # Left as None until stats.pass_at_k / stats.pass_hat_k are implemented.
     for k in k_values:
         for name, fn in (("pass_at", stats.pass_at_k), ("pass_hat", stats.pass_hat_k)):
             if not by_item or min(len(v) for v in by_item.values()) < k:
                 out[f"{name}_{k}"] = None            # undefined with fewer than k runs per item
                 continue
-            try:
-                est = [fn(len(v), sum(v), k) for v in by_item.values()]
-                out[f"{name}_{k}"] = round(sum(est) / len(est), 4) if est else None
-            except NotImplementedError:
-                out[f"{name}_{k}"] = None
+            estimates = [fn(len(v), sum(v), k) for v in by_item.values()]
+            out[f"{name}_{k}"] = round(sum(estimates) / len(estimates), 4)
     passes = sum(bool(r.get("pass_rate")) for r in rows)
     out["cost_per_success"] = round(sum(r["cost"] for r in rows) / passes, 4) if passes else None
     return out
